@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>keyboard.js — the tiny keyboard library</title>
+<meta name="description" content="A tiny, modular keyboard input library: hotkeys, sequences, chords, scopes, layouts, recorder. Zero dependencies." />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface-2: #1c1c1e;
+    --border: #2c2c2e;
+    --text: #f5f5f7;
+    --muted: #98989d;
+    --accent: #30d158;
+    --accent-2: #2997ff;
+    --warn: #ff9f0a;
+    --pink: #ff375f;
+    --purple: #bf5af2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  body { min-height: 100vh; }
+
+  /* === HERO === */
+  .hero { position: relative; padding: 88px 24px 64px; text-align: center; overflow: hidden; }
+  .hero::before {
+    content: ''; position: absolute; inset: -20% -20% auto -20%; height: 900px; z-index: -1;
+    background:
+      radial-gradient(60% 60% at 50% 30%, rgba(48,209,88,0.18), transparent 60%),
+      radial-gradient(40% 50% at 20% 10%, rgba(41,151,255,0.15), transparent 60%),
+      radial-gradient(40% 50% at 80% 10%, rgba(191,90,242,0.12), transparent 60%);
+    filter: blur(40px);
+    animation: heroPulse 12s ease-in-out infinite;
+  }
+  .hero::after {
+    content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0.25;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 40%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 40%, transparent 80%);
+  }
+  @keyframes heroPulse {
+    0%, 100% { opacity: 1; transform: translateY(0); }
+    50% { opacity: 0.85; transform: translateY(-20px); }
+  }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+  .badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 32px; }
+  .badge { padding: 6px 14px; border-radius: 999px; background: rgba(28,28,30,0.7); backdrop-filter: blur(10px); border: 1px solid var(--border); font-size: 12px; color: var(--muted); font-weight: 500; letter-spacing: 0.02em; }
+  .badge.accent { color: var(--accent); border-color: rgba(48, 209, 88, 0.35); box-shadow: 0 0 24px rgba(48,209,88,0.1); }
+  .badge::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 6px; opacity: 0.6; }
+
+  h1 {
+    font-size: clamp(56px, 11vw, 128px); font-weight: 800; letter-spacing: -0.045em; line-height: 0.95;
+    margin-bottom: 24px;
+    background: linear-gradient(180deg, #ffffff 0%, #f5f5f7 40%, #8e8e93 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  h1 .dot { color: var(--accent); -webkit-text-fill-color: var(--accent); }
+  .tagline { font-size: clamp(18px, 2.2vw, 22px); color: var(--muted); max-width: 640px; margin: 0 auto 8px; line-height: 1.5; }
+  .typewriter { font-size: clamp(18px, 2vw, 20px); max-width: 640px; margin: 0 auto 40px; height: 32px; font-family: 'SF Mono', Menlo, monospace; color: var(--accent); }
+  .typewriter .caret { display: inline-block; width: 2px; height: 1em; background: var(--accent); vertical-align: text-bottom; margin-left: 2px; animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 56px; }
+  .btn { padding: 14px 24px; border-radius: 12px; border: 1px solid var(--border); background: rgba(28,28,30,0.6); backdrop-filter: blur(10px); color: var(--text); font-size: 14px; font-weight: 500; text-decoration: none; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+  .btn:hover { background: var(--surface-2); border-color: var(--muted); transform: translateY(-1px); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 8px 32px rgba(48,209,88,0.25); }
+  .btn.primary:hover { background: #2ab84c; box-shadow: 0 12px 40px rgba(48,209,88,0.35); }
+
+  /* === Live Keyboard === */
+  .live-kb { display: block; width: fit-content; max-width: 100%; padding: 20px; background: rgba(20,20,20,0.6); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 20px; box-shadow: 0 30px 80px rgba(0,0,0,0.5); margin: 0 auto 48px; overflow-x: auto; }
+  .kb-row { display: flex; gap: 6px; justify-content: center; margin-bottom: 6px; }
+  .kb-row:last-child { margin-bottom: 0; }
+  .key {
+    min-width: 36px; height: 36px; padding: 0 8px; border-radius: 8px;
+    background: #1a1a1c; border: 1px solid #2c2c2e; border-bottom-width: 2px;
+    color: var(--muted); font-family: 'SF Mono', Menlo, monospace; font-size: 11px; font-weight: 500;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.15s; position: relative;
+  }
+  .key.wide { min-width: 58px; }
+  .key.wider { min-width: 84px; }
+  .key.space { min-width: 220px; }
+  .key.lit {
+    background: var(--accent); color: #000; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(48,209,88,0.25), 0 0 28px rgba(48,209,88,0.45);
+    transform: translateY(1px);
+  }
+
+  /* === Stats === */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; max-width: 920px; margin: 0 auto; }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: rgba(20,20,20,0.5); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 16px; padding: 20px; text-align: left; }
+  .stat .v { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-family: 'SF Mono', Menlo, monospace; }
+  .stat .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+  .stat .v.g { background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat .v.o { background: linear-gradient(135deg, var(--warn) 0%, var(--pink) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat .v.p { background: linear-gradient(135deg, var(--purple) 0%, var(--pink) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  /* === Features === */
+  .features { padding: 96px 24px 48px; }
+  .section-head { text-align: center; margin-bottom: 56px; }
+  .section-head .eyebrow { display: inline-block; color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 12px; }
+  .section-head h2 { font-size: clamp(32px, 5vw, 48px); font-weight: 700; letter-spacing: -0.03em; margin-bottom: 12px; }
+  .section-head p { color: var(--muted); font-size: 17px; max-width: 560px; margin: 0 auto; line-height: 1.5; }
+  .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .feat { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px; position: relative; overflow: hidden; transition: all 0.2s; }
+  .feat:hover { border-color: var(--muted); transform: translateY(-2px); }
+  .feat .icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 20px; }
+  .feat h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .feat p { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+  .feat pre { background: #000; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-family: 'SF Mono', Menlo, monospace; font-size: 11px; color: var(--text); overflow-x: auto; line-height: 1.5; }
+  .feat pre .k { color: var(--purple); }
+  .feat pre .s { color: var(--accent); }
+  .feat pre .f { color: var(--accent-2); }
+  .feat pre .c { color: #6e6e73; }
+  .feat.green .icon { background: rgba(48,209,88,0.15); color: var(--accent); border: 1px solid rgba(48,209,88,0.3); }
+  .feat.blue .icon { background: rgba(41,151,255,0.15); color: var(--accent-2); border: 1px solid rgba(41,151,255,0.3); }
+  .feat.orange .icon { background: rgba(255,159,10,0.15); color: var(--warn); border: 1px solid rgba(255,159,10,0.3); }
+  .feat.pink .icon { background: rgba(255,55,95,0.15); color: var(--pink); border: 1px solid rgba(255,55,95,0.3); }
+  .feat.purple .icon { background: rgba(191,90,242,0.15); color: var(--purple); border: 1px solid rgba(191,90,242,0.3); }
+  .feat.cyan .icon { background: rgba(100,210,255,0.15); color: #64d2ff; border: 1px solid rgba(100,210,255,0.3); }
+
+  section { margin-bottom: 64px; }
+  h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .sub { color: var(--muted); margin-bottom: 24px; font-size: 15px; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; transition: border-color 0.2s; }
+  .card.active { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(48, 209, 88, 0.15); }
+  .card h3 { font-size: 14px; font-weight: 500; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kbd-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  kbd { display: inline-block; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px; font-family: 'SF Mono', Menlo, monospace; font-size: 13px; font-weight: 500; color: var(--text); }
+  .desc { color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .count { font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 8px; font-family: 'SF Mono', Menlo, monospace; }
+
+  .console { background: #000; border: 1px solid var(--border); border-radius: 16px; padding: 16px; min-height: 180px; max-height: 240px; overflow-y: auto; font-family: 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.7; }
+  .console .line { color: var(--muted); }
+  .console .line .ts { color: #48484a; margin-right: 12px; }
+  .console .line .ev { color: var(--accent-2); }
+  .console .line .val { color: var(--accent); }
+  .console-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .console-head button { font-size: 12px; padding: 6px 12px; border-radius: 8px; background: transparent; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
+  .console-head button:hover { color: var(--text); border-color: var(--muted); }
+
+  .scope-pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; font-family: 'SF Mono', Menlo, monospace; }
+  .scope-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .scope-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+  .recorder-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .recorder-status { font-family: 'SF Mono', Menlo, monospace; font-size: 13px; color: var(--muted); }
+  .recorder-status.on { color: var(--pink); }
+  .recorder-status.on::before { content: '● '; }
+
+  /* Command Palette */
+  .palette-trigger { background: var(--surface); border: 1px dashed var(--border); border-radius: 16px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.2s; }
+  .palette-trigger:hover { border-color: var(--accent); background: var(--surface-2); }
+  .palette-trigger .hint { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); display: none; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 100; }
+  .overlay.open { display: flex; }
+  .palette { width: 100%; max-width: 560px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.6); }
+  .palette input { width: 100%; padding: 16px 20px; background: transparent; border: 0; border-bottom: 1px solid var(--border); color: var(--text); font-size: 16px; outline: none; }
+  .palette input::placeholder { color: var(--muted); }
+  .palette ul { list-style: none; max-height: 320px; overflow-y: auto; }
+  .palette li { padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-left: 3px solid transparent; }
+  .palette li.active { background: var(--surface-2); border-left-color: var(--accent); }
+  .palette li .label { color: var(--text); font-size: 14px; }
+  .palette li .shortcut { color: var(--muted); font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+
+  /* Snake */
+  .snake-wrap { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 720px) { .snake-wrap { grid-template-columns: 1fr; } }
+  .snake-board { background: #000; border: 1px solid var(--border); border-radius: 16px; padding: 12px; display: inline-block; }
+  .snake-grid { display: grid; gap: 2px; }
+  .cell { width: 18px; height: 18px; border-radius: 3px; background: #0f0f0f; transition: background 0.08s; }
+  .cell.snake { background: var(--accent); box-shadow: 0 0 8px rgba(48,209,88,0.5); }
+  .cell.head { background: var(--accent-2); box-shadow: 0 0 12px rgba(41,151,255,0.7); }
+  .cell.food { background: var(--pink); box-shadow: 0 0 12px rgba(255,55,95,0.6); }
+  .snake-info { display: flex; flex-direction: column; gap: 12px; min-width: 180px; }
+  .snake-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .snake-stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .snake-stat .v { color: var(--text); font-size: 24px; font-weight: 600; margin-top: 4px; font-family: 'SF Mono', Menlo, monospace; }
+  .snake-hint { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .snake-hint kbd { margin: 0 2px; }
+
+  /* Konami banner */
+  .konami { position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-120%); background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff; padding: 16px 28px; border-radius: 999px; font-weight: 600; font-size: 15px; box-shadow: 0 12px 40px rgba(255,55,95,0.4); transition: transform 0.4s cubic-bezier(.2,1.2,.3,1); z-index: 200; }
+  .konami.show { transform: translateX(-50%) translateY(0); }
+  .confetti { position: fixed; width: 10px; height: 10px; border-radius: 2px; pointer-events: none; z-index: 150; }
+
+  .code { background: #000; border: 1px solid var(--border); border-radius: 16px; padding: 20px; font-family: 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.7; color: var(--text); overflow-x: auto; }
+  .code .c { color: #6e6e73; }
+  .code .k { color: var(--purple); }
+  .code .s { color: var(--accent); }
+  .code .f { color: var(--accent-2); }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 96px; padding: 32px 24px; border-top: 1px solid var(--border); }
+  footer a { color: var(--accent-2); text-decoration: none; }
+
+  /* Internal demo sections use the same wrap */
+  .wrap > section { margin-bottom: 72px; }
+  .wrap > section > h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+
+  /* Install block */
+  .install { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .install-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: #000; overflow-x: auto; }
+  .install-tabs button { background: transparent; border: 0; color: var(--muted); padding: 14px 20px; font-family: 'SF Mono', Menlo, monospace; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: color 0.15s; }
+  .install-tabs button:hover { color: var(--text); }
+  .install-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .install-body { position: relative; background: #000; }
+  .install-body pre { padding: 22px 60px 22px 24px; font-family: 'SF Mono', Menlo, monospace; font-size: 14px; color: var(--text); overflow-x: auto; line-height: 1.6; margin: 0; }
+  .install-body pre .c { color: #6e6e73; }
+  .install-body pre .k { color: var(--purple); }
+  .install-body pre .s { color: var(--accent); }
+  .install-body pre .f { color: var(--accent-2); }
+  .copy-btn { position: absolute; top: 14px; right: 14px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+  .copy-btn:hover { color: var(--text); border-color: var(--muted); }
+  .copy-btn.done { color: var(--accent); border-color: rgba(48,209,88,0.4); }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="wrap" style="max-width: 1200px;">
+    <div class="badges">
+      <span class="badge accent">v1.0.0 — released</span>
+      <span class="badge">3.2KB gzip</span>
+      <span class="badge">0 dependencies</span>
+      <span class="badge">TypeScript-first</span>
+      <span class="badge">MIT license</span>
+    </div>
+
+    <h1>keyboard<span class="dot">.</span>js</h1>
+    <p class="tagline">Every keyboard interaction your web app will ever need.</p>
+    <p class="typewriter"><span id="typewriter"></span><span class="caret"></span></p>
+
+    <div class="cta">
+      <a class="btn primary" href="#try">Try the Live Demo →</a>
+      <a class="btn" href="#install">Install</a>
+      <a class="btn" href="#features">Explore features</a>
+    </div>
+
+    <div class="live-kb" id="liveKb" aria-hidden="true">
+      <!-- keyboard rows populated by JS -->
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v g" id="statSize">3.2</div><div class="l">KB gzipped</div></div>
+      <div class="stat"><div class="v o">0</div><div class="l">Runtime deps</div></div>
+      <div class="stat"><div class="v p">6</div><div class="l">Core features</div></div>
+      <div class="stat"><div class="v g" id="statFires">0</div><div class="l">Keys pressed here</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">One API, every pattern</span>
+      <h2>Everything the keyboard can do.</h2>
+      <p>Hotkeys, sequences, chords, scopes, layouts, and a recorder — composable, TypeScript-typed, and under 4KB.</p>
+    </div>
+    <div class="feature-grid">
+
+      <div class="feat green">
+        <div class="icon">⚡</div>
+        <h3>Hotkeys</h3>
+        <p>The classics. Full modifier support, platform-aware <code>mod</code>, cross-browser key normalization.</p>
+        <pre><span class="k">Kb</span>.<span class="f">on</span>(<span class="s">'mod+k'</span>, openPalette);
+<span class="k">Kb</span>.<span class="f">on</span>(<span class="s">'shift+?'</span>, showHelp);</pre>
+      </div>
+
+      <div class="feat blue">
+        <div class="icon">→</div>
+        <h3>Sequences</h3>
+        <p>Ordered key runs like <code>g g</code> or <code>ctrl+k ctrl+s</code>. Configurable timeout between keys.</p>
+        <pre><span class="k">Kb</span>.<span class="f">on</span>([<span class="s">'g'</span>, <span class="s">'g'</span>], scrollTop);
+<span class="k">Kb</span>.<span class="f">on</span>([<span class="s">'g'</span>, <span class="s">'h'</span>], navHome);</pre>
+      </div>
+
+      <div class="feat pink">
+        <div class="icon">◆</div>
+        <h3>Chords</h3>
+        <p>Multiple keys held together within a time window. Auto-resets on window blur to avoid stuck keys.</p>
+        <pre><span class="k">Kb</span>.<span class="f">chord</span>([<span class="s">'j'</span>, <span class="s">'k'</span>], exitMode);</pre>
+      </div>
+
+      <div class="feat purple">
+        <div class="icon">⊙</div>
+        <h3>Scopes</h3>
+        <p>Stackable scopes for modals, editors, palettes. <code>exclusive</code> suppresses globals while active.</p>
+        <pre><span class="k">Kb</span>.<span class="f">pushScope</span>(<span class="s">'modal'</span>, {
+  exclusive: <span class="k">true</span>,
+});</pre>
+      </div>
+
+      <div class="feat orange">
+        <div class="icon">⌘</div>
+        <h3>Cross-platform</h3>
+        <p><code>mod</code> resolves to ⌘ on Mac, Ctrl on Windows/Linux. Format returns native glyphs per-OS.</p>
+        <pre><span class="k">Kb</span>.platform <span class="c">// 'mac'</span>
+<span class="k">Kb</span>.<span class="f">format</span>(<span class="s">'mod+k'</span>) <span class="c">// ⌘K</span></pre>
+      </div>
+
+      <div class="feat cyan">
+        <div class="icon">●</div>
+        <h3>Record &amp; Replay</h3>
+        <p>Capture keystrokes with timing, replay at any speed. Perfect for macros, tutorials, tests.</p>
+        <pre><span class="k">Kb</span>.<span class="f">record</span>();
+<span class="k">const</span> r = <span class="k">Kb</span>.<span class="f">stop</span>();
+<span class="k">await</span> <span class="k">Kb</span>.<span class="f">replay</span>(r, <span class="s">2</span>);</pre>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+
+  <section id="install">
+    <h2>Install</h2>
+    <p class="sub">3.2KB gzipped. Zero runtime dependencies. Ships ESM, UMD, and TypeScript declarations.</p>
+
+    <div class="install" style="margin-bottom: 28px;">
+      <div class="install-tabs" role="tablist">
+        <button class="active" data-tab="npm">npm</button>
+        <button data-tab="pnpm">pnpm</button>
+        <button data-tab="yarn">yarn</button>
+        <button data-tab="bun">bun</button>
+        <button data-tab="cdn">CDN</button>
+      </div>
+      <div class="install-body">
+        <button class="copy-btn" id="copyInstall">Copy</button>
+        <pre id="installCode" data-cmd="npm">npm install @buildwithdarsh/keyboard.js</pre>
+      </div>
+    </div>
+
+    <div class="install">
+      <div class="install-tabs" style="justify-content: flex-start;">
+        <button class="active" disabled style="color: var(--text); border-bottom-color: var(--accent); cursor: default;">usage.ts</button>
+      </div>
+      <div class="install-body">
+        <pre><span class="k">import</span> Kb <span class="k">from</span> <span class="s">'@buildwithdarsh/keyboard.js'</span>;
+
+Kb.<span class="f">init</span>();
+
+<span class="c">// Cross-platform hotkey — ⌘K on Mac, Ctrl+K on Windows/Linux</span>
+Kb.<span class="f">on</span>(<span class="s">'mod+k'</span>, () =&gt; openPalette());
+
+<span class="c">// Sequences</span>
+Kb.<span class="f">on</span>([<span class="s">'g'</span>, <span class="s">'g'</span>], () =&gt; window.scrollTo(<span class="s">0</span>, <span class="s">0</span>));
+
+<span class="c">// Chords — keys held together</span>
+Kb.<span class="f">chord</span>([<span class="s">'j'</span>, <span class="s">'k'</span>], () =&gt; exitInsertMode());
+
+<span class="c">// Scoped — exclusive scope suppresses globals while active</span>
+<span class="k">const</span> pop = Kb.<span class="f">pushScope</span>(<span class="s">'modal'</span>, { exclusive: <span class="k">true</span> });
+Kb.<span class="f">on</span>(<span class="s">'enter'</span>, submit, { scope: <span class="s">'modal'</span> });
+
+<span class="c">// Record + replay for macros or tests</span>
+Kb.<span class="f">record</span>();
+<span class="k">const</span> frames = Kb.<span class="f">stop</span>();
+<span class="k">await</span> Kb.<span class="f">replay</span>(frames, <span class="s">2</span>); <span class="c">// 2× speed</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="try">
+    <h2>Try it — press any binding</h2>
+    <p class="sub">Cards light up when their binding fires. Focus anywhere on the page.</p>
+
+    <div class="grid" id="cards">
+      <div class="card" data-combo="mod+k">
+        <h3>Hotkey <span id="platformTag" style="color:var(--accent-2); font-weight:600;"></span></h3>
+        <div class="kbd-row" id="modKBow"><kbd id="modLabel">Mod</kbd>+<kbd>K</kbd></div>
+        <div class="desc">Cross-platform: <code>mod</code> resolves to Cmd on Mac, Ctrl on Windows/Linux.</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+      <div class="card" data-combo="shift+?">
+        <h3>Hotkey</h3>
+        <div class="kbd-row"><kbd>Shift</kbd>+<kbd>?</kbd></div>
+        <div class="desc">Show help overlay.</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+      <div class="card" data-combo="seq:g g">
+        <h3>Sequence</h3>
+        <div class="kbd-row"><kbd>G</kbd> <kbd>G</kbd></div>
+        <div class="desc">Press twice within 1s.</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+      <div class="card" data-combo="seq:g h">
+        <h3>Sequence</h3>
+        <div class="kbd-row"><kbd>G</kbd> <kbd>H</kbd></div>
+        <div class="desc">Go to home (Vim-style).</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+      <div class="card" data-combo="chord:j+k">
+        <h3>Chord</h3>
+        <div class="kbd-row"><kbd>J</kbd>+<kbd>K</kbd></div>
+        <div class="desc">Press both keys simultaneously.</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+      <div class="card" data-combo="escape">
+        <h3>Hotkey</h3>
+        <div class="kbd-row"><kbd>Esc</kbd></div>
+        <div class="desc">Close modals, cancel actions.</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Scopes</h2>
+    <p class="sub">Bindings only fire in their active scope. Toggle below.</p>
+    <div class="scope-controls">
+      <button class="btn" data-scope="global">global</button>
+      <button class="btn" data-scope="editor">editor</button>
+      <button class="btn" data-scope="modal">modal</button>
+    </div>
+    <div class="scope-pill">
+      Active: <span class="dot"></span><span id="activeScope">global</span>
+    </div>
+    <div class="grid" style="margin-top: 16px;">
+      <div class="card" data-combo="scoped:editor:mod+s">
+        <h3>Scope: editor</h3>
+        <div class="kbd-row"><kbd id="scopeModLabel">Mod</kbd>+<kbd>S</kbd></div>
+        <div class="desc">Only fires when editor scope is active. Switch scope above first.</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+      <div class="card" data-combo="scoped:modal:enter">
+        <h3>Scope: modal</h3>
+        <div class="kbd-row"><kbd>Enter</kbd></div>
+        <div class="desc">Only fires in modal scope.</div>
+        <div class="count" data-count>0 fires</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Command Palette</h2>
+    <p class="sub">The classic. <kbd id="paletteMod">⌘</kbd>+<kbd>K</kbd> opens a searchable command list. <kbd>↑</kbd>/<kbd>↓</kbd> to navigate, <kbd>Enter</kbd> to run, <kbd>Esc</kbd> to close. Uses scope stacking — bindings outside the palette pause while it's open.</p>
+    <div class="palette-trigger" id="paletteTrigger">
+      <div style="font-size: 20px; font-weight: 600;">Open Command Palette</div>
+      <div class="hint">or press <kbd id="paletteModHint">⌘</kbd>+<kbd>K</kbd></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Snake</h2>
+    <p class="sub">Because every keyboard library deserves a snake game. <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. <kbd>Space</kbd> to start / pause.</p>
+    <div class="snake-wrap">
+      <div class="snake-board"><div class="snake-grid" id="snakeGrid"></div></div>
+      <div class="snake-info">
+        <div class="snake-stat"><div class="l">Score</div><div class="v" id="snakeScore">0</div></div>
+        <div class="snake-stat"><div class="l">State</div><div class="v" id="snakeState" style="font-size: 16px;">idle</div></div>
+        <div class="snake-hint">
+          <strong>Controls</strong><br>
+          <kbd>W</kbd>/<kbd>↑</kbd> up · <kbd>S</kbd>/<kbd>↓</kbd> down<br>
+          <kbd>A</kbd>/<kbd>←</kbd> left · <kbd>D</kbd>/<kbd>→</kbd> right<br>
+          <kbd>Space</kbd> start / pause<br>
+          <kbd>R</kbd> reset
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Easter egg</h2>
+    <p class="sub">Try the <em>Konami Code</em>: <kbd>↑</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>B</kbd> <kbd>A</kbd></p>
+    <p class="sub" style="font-size: 13px;">Classic sequence demo — 10 keys in order with a generous timeout.</p>
+  </section>
+
+  <div class="overlay" id="paletteOverlay">
+    <div class="palette" role="dialog" aria-label="Command palette">
+      <input type="text" id="paletteInput" placeholder="Type a command…" autocomplete="off" spellcheck="false" />
+      <ul id="paletteList"></ul>
+    </div>
+  </div>
+
+  <div class="konami" id="konamiBanner">🎮 Konami unlocked — +30 lives granted</div>
+
+  <section>
+    <h2>Recorder</h2>
+    <p class="sub">Capture a key sequence, then replay it — events fire exactly as if you typed them.</p>
+    <div class="recorder-controls">
+      <button class="btn primary" id="recBtn">● Record</button>
+      <button class="btn" id="playBtn" disabled>▶ Replay</button>
+      <span class="recorder-status" id="recStatus">idle</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Console</h2>
+    <p class="sub">Every fire is logged here. Most recent on top.</p>
+    <div class="console-head">
+      <div class="scope-pill"><span class="dot"></span><span id="eventCount">0</span> events</div>
+      <button id="clearLog">Clear</button>
+    </div>
+    <div class="console" id="console"></div>
+  </section>
+
+  <section>
+    <h2>Code</h2>
+    <pre class="code"><span class="c">// Everything you saw above — in 15 lines.</span>
+<span class="k">import</span> Kb <span class="k">from</span> <span class="s">'keyboard.js'</span>;
+
+Kb.<span class="f">init</span>();
+Kb.<span class="f">on</span>(<span class="s">'ctrl+k'</span>, () =&gt; openPalette());
+Kb.<span class="f">on</span>(<span class="s">'shift+?'</span>, () =&gt; showHelp());
+Kb.<span class="f">on</span>([<span class="s">'g'</span>, <span class="s">'g'</span>], () =&gt; scrollTop());
+Kb.<span class="f">on</span>([<span class="s">'g'</span>, <span class="s">'h'</span>], () =&gt; navigate(<span class="s">'/'</span>));
+Kb.<span class="f">chord</span>([<span class="s">'j'</span>, <span class="s">'k'</span>], () =&gt; exitInsertMode());
+
+<span class="c">// Scoped bindings</span>
+Kb.<span class="f">on</span>(<span class="s">'ctrl+s'</span>, save, { scope: <span class="s">'editor'</span> });
+Kb.<span class="f">scope</span>(<span class="s">'editor'</span>); <span class="c">// activate</span>
+
+<span class="c">// Record + replay for tests or macros</span>
+Kb.<span class="f">record</span>();
+<span class="k">const</span> frames = Kb.<span class="f">stop</span>();
+<span class="k">await</span> Kb.<span class="f">replay</span>(frames);</pre>
+  </section>
+
+</div>
+
+<footer>
+  Built by <a href="https://build.withdarsh.com">Darsh Gupta</a> · MIT License
+</footer>
+
+<script src="dist/keyboard.umd.js"></script>
+<script>
+(function () {
+  if (!window.Keyboard) {
+    console.error('keyboard.js UMD bundle did not load. Run `npm run build` first.');
+    return;
+  }
+  var Kb = window.Keyboard;
+  Kb.init();
+
+  /* =======================
+     Install tabs + copy
+     ======================= */
+  var INSTALL_CMDS = {
+    npm:  'npm install @buildwithdarsh/keyboard.js',
+    pnpm: 'pnpm add @buildwithdarsh/keyboard.js',
+    yarn: 'yarn add @buildwithdarsh/keyboard.js',
+    bun:  'bun add @buildwithdarsh/keyboard.js',
+    cdn:  '<script src="https://cdn.jsdelivr.net/npm/@buildwithdarsh/keyboard.js"></' + 'script>',
+  };
+  var installCode = document.getElementById('installCode');
+  var installTabs = document.querySelectorAll('#install .install-tabs button[data-tab]');
+  installTabs.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      installTabs.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      installCode.textContent = INSTALL_CMDS[btn.dataset.tab];
+    });
+  });
+  document.getElementById('copyInstall').addEventListener('click', function () {
+    var btn = this;
+    navigator.clipboard.writeText(installCode.textContent).then(function () {
+      btn.textContent = 'Copied!'; btn.classList.add('done');
+      setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1400);
+    });
+  });
+
+  /* =======================
+     Live Keyboard (hero)
+     ======================= */
+  var KB_ROWS = [
+    [
+      ['`','`'],['1','1'],['2','2'],['3','3'],['4','4'],['5','5'],
+      ['6','6'],['7','7'],['8','8'],['9','9'],['0','0'],['-','-'],['=','='],
+      ['⌫','Backspace','wide'],
+    ],
+    [
+      ['Tab','Tab','wide'],
+      ['Q','q'],['W','w'],['E','e'],['R','r'],['T','t'],['Y','y'],['U','u'],['I','i'],['O','o'],['P','p'],['[','['],[']',']'],['\\','\\'],
+    ],
+    [
+      ['Caps','CapsLock','wider'],
+      ['A','a'],['S','s'],['D','d'],['F','f'],['G','g'],['H','h'],['J','j'],['K','k'],['L','l'],[';',';'],["'","'"],
+      ['⏎','Enter','wider'],
+    ],
+    [
+      ['⇧','Shift','wider'],
+      ['Z','z'],['X','x'],['C','c'],['V','v'],['B','b'],['N','n'],['M','m'],[',',','],['.','.'],['/','/'],
+      ['⇧','Shift','wider'],
+    ],
+    [
+      ['⌃','Control','wide'],
+      [Kb.isMac ? '⌥' : 'Alt','Alt','wide'],
+      [Kb.isMac ? '⌘' : 'Win','Meta','wide'],
+      ['','Space','space'],
+      [Kb.isMac ? '⌘' : 'Win','Meta','wide'],
+      [Kb.isMac ? '⌥' : 'Alt','Alt','wide'],
+      ['←','ArrowLeft'],
+      ['↑','ArrowUp'],
+      ['↓','ArrowDown'],
+      ['→','ArrowRight'],
+    ],
+  ];
+  var liveKb = document.getElementById('liveKb');
+  var keyEls = {};
+  KB_ROWS.forEach(function (row) {
+    var rowEl = document.createElement('div');
+    rowEl.className = 'kb-row';
+    row.forEach(function (def) {
+      var k = document.createElement('div');
+      k.className = 'key' + (def[2] ? ' ' + def[2] : '');
+      k.textContent = def[0];
+      rowEl.appendChild(k);
+      var name = String(def[1]).toLowerCase();
+      if (name === ' ' || name === 'space') name = ' ';
+      if (!keyEls[name]) keyEls[name] = [];
+      keyEls[name].push(k);
+    });
+    liveKb.appendChild(rowEl);
+  });
+
+  function litKey(rawKey) {
+    var name = String(rawKey).toLowerCase();
+    var aliasMap = { ' ': ' ', spacebar: ' ' };
+    if (aliasMap[name]) name = aliasMap[name];
+    var els = keyEls[name];
+    if (!els) return;
+    els.forEach(function (el) {
+      el.classList.add('lit');
+      setTimeout(function () { el.classList.remove('lit'); }, 280);
+    });
+  }
+
+  // Stat counter
+  var statFiresEl = document.getElementById('statFires');
+  var totalFires = 0;
+  Kb.onEvent('keydown', function (ev) {
+    litKey(ev.key);
+    // Also light modifier keys
+    if (ev.ctrlKey) litKey('control');
+    if (ev.altKey) litKey('alt');
+    if (ev.shiftKey) litKey('shift');
+    if (ev.metaKey) litKey('meta');
+    totalFires++;
+    statFiresEl.textContent = totalFires;
+  });
+
+  /* =======================
+     Typewriter tagline
+     ======================= */
+  var TYPED_LINES = [
+    Kb.isMac ? "Kb.on('⌘+K', openPalette)" : "Kb.on('Ctrl+K', openPalette)",
+    "Kb.on(['g','g'], scrollTop)",
+    "Kb.chord(['j','k'], exitMode)",
+    "Kb.pushScope('modal', { exclusive: true })",
+    "await Kb.replay(recording, 2)",
+  ];
+  var twEl = document.getElementById('typewriter');
+  var lineIdx = 0, charIdx = 0, phase = 'type';
+  function tick() {
+    var line = TYPED_LINES[lineIdx];
+    if (phase === 'type') {
+      charIdx++;
+      twEl.textContent = line.slice(0, charIdx);
+      if (charIdx >= line.length) { phase = 'hold'; setTimeout(tick, 1400); return; }
+      setTimeout(tick, 45 + Math.random() * 35);
+    } else if (phase === 'hold') {
+      phase = 'erase'; setTimeout(tick, 40);
+    } else {
+      charIdx--;
+      twEl.textContent = line.slice(0, charIdx);
+      if (charIdx <= 0) {
+        phase = 'type';
+        lineIdx = (lineIdx + 1) % TYPED_LINES.length;
+        setTimeout(tick, 200);
+        return;
+      }
+      setTimeout(tick, 20);
+    }
+  }
+  tick();
+
+  var cards = {};
+  document.querySelectorAll('[data-combo]').forEach(function (el) {
+    cards[el.dataset.combo] = el;
+  });
+
+  var logEl = document.getElementById('console');
+  var countEl = document.getElementById('eventCount');
+  var events = 0;
+
+  function log(type, combo) {
+    events++;
+    countEl.textContent = events;
+    var time = new Date().toLocaleTimeString();
+    var line = document.createElement('div');
+    line.className = 'line';
+    line.innerHTML =
+      '<span class="ts">' + time + '</span>' +
+      '<span class="ev">' + type + '</span> ' +
+      '<span class="val">' + combo + '</span>';
+    logEl.insertBefore(line, logEl.firstChild);
+    while (logEl.children.length > 40) logEl.removeChild(logEl.lastChild);
+  }
+
+  function hit(id) {
+    var el = cards[id];
+    if (!el) return;
+    el.classList.add('active');
+    setTimeout(function () { el.classList.remove('active'); }, 400);
+    var c = el.querySelector('[data-count]');
+    var n = (parseInt(c.textContent, 10) || 0) + 1;
+    c.textContent = n + ' fires';
+  }
+
+  // Show platform on the card
+  document.getElementById('platformTag').textContent = '· ' + Kb.platform;
+  document.getElementById('modLabel').textContent = Kb.isMac ? '⌘' : 'Ctrl';
+
+  Kb.on('mod+k', function () { hit('mod+k'); log('shortcut', Kb.format('mod+k')); });
+  Kb.on('shift+?', function () { hit('shift+?'); log('shortcut', 'Shift+?'); });
+  Kb.on('escape', function () { hit('escape'); log('shortcut', 'Escape'); });
+  Kb.on(['g', 'g'], function () { hit('seq:g g'); log('sequence', 'g g'); });
+  Kb.on(['g', 'h'], function () { hit('seq:g h'); log('sequence', 'g h'); });
+  Kb.chord(['j', 'k'], function () { hit('chord:j+k'); log('chord', 'j+k'); });
+
+  Kb.on('mod+s', function () { hit('scoped:editor:mod+s'); log('scoped', 'editor :: ' + Kb.format('mod+s')); }, { scope: 'editor' });
+  Kb.on('enter', function () { hit('scoped:modal:enter'); log('scoped', 'modal :: Enter'); }, { scope: 'modal' });
+
+  // Reflect platform-aware label in scope card
+  document.getElementById('scopeModLabel').textContent = Kb.isMac ? '⌘' : 'Ctrl';
+
+  var activeScopeEl = document.getElementById('activeScope');
+  var scopeButtons = document.querySelectorAll('[data-scope]');
+  function refreshScopeButtons() {
+    scopeButtons.forEach(function (b) {
+      if (b.dataset.scope === Kb.scope()) b.classList.add('primary');
+      else b.classList.remove('primary');
+    });
+  }
+  scopeButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      Kb.scope(btn.dataset.scope);
+      activeScopeEl.textContent = Kb.scope();
+      refreshScopeButtons();
+      btn.blur(); // release focus so subsequent key presses land on window
+      log('scope', 'switched to ' + Kb.scope());
+    });
+  });
+  refreshScopeButtons();
+
+  // Recorder
+  var recBtn = document.getElementById('recBtn');
+  var playBtn = document.getElementById('playBtn');
+  var recStatus = document.getElementById('recStatus');
+  var recording = null;
+  var isRecording = false;
+
+  recBtn.addEventListener('click', function () {
+    if (!isRecording) {
+      Kb.record();
+      isRecording = true;
+      recBtn.textContent = '■ Stop';
+      recStatus.textContent = 'recording...';
+      recStatus.classList.add('on');
+      playBtn.disabled = true;
+    } else {
+      recording = Kb.stop();
+      isRecording = false;
+      recBtn.textContent = '● Record';
+      recStatus.textContent = 'captured ' + recording.length + ' keys';
+      recStatus.classList.remove('on');
+      playBtn.disabled = recording.length === 0;
+      log('recorder', 'stopped (' + recording.length + ' keys)');
+    }
+  });
+
+  playBtn.addEventListener('click', function () {
+    if (!recording) return;
+    log('recorder', 'replaying ' + recording.length + ' keys');
+    Kb.replay(recording);
+  });
+
+  // Show each replayed key as it fires
+  Kb.onEvent('replay', function (entry) {
+    log('replay', entry.label);
+  });
+
+  document.getElementById('clearLog').addEventListener('click', function () {
+    logEl.innerHTML = '';
+    events = 0;
+    countEl.textContent = 0;
+  });
+
+  /* =======================
+     Command Palette
+     ======================= */
+  var COMMANDS = [
+    { label: 'Toggle theme',       shortcut: 'mod+shift+t' },
+    { label: 'New file',           shortcut: 'mod+n' },
+    { label: 'Save',               shortcut: 'mod+s' },
+    { label: 'Find in project',    shortcut: 'mod+shift+f' },
+    { label: 'Go to line',         shortcut: 'mod+g' },
+    { label: 'Open settings',      shortcut: 'mod+,' },
+    { label: 'Reload window',      shortcut: 'mod+r' },
+    { label: 'Close tab',          shortcut: 'mod+w' },
+    { label: 'Split editor right', shortcut: 'mod+\\' },
+    { label: 'Toggle sidebar',     shortcut: 'mod+b' },
+  ];
+
+  var overlay = document.getElementById('paletteOverlay');
+  var paletteInput = document.getElementById('paletteInput');
+  var paletteList = document.getElementById('paletteList');
+  var paletteMod = document.getElementById('paletteMod');
+  var paletteModHint = document.getElementById('paletteModHint');
+  var paletteTrigger = document.getElementById('paletteTrigger');
+  var paletteModLabel = Kb.isMac ? '⌘' : 'Ctrl';
+  paletteMod.textContent = paletteModLabel;
+  paletteModHint.textContent = paletteModLabel;
+
+  var paletteActive = 0;
+  var popPaletteScope = null;
+
+  function renderPalette() {
+    var q = paletteInput.value.trim().toLowerCase();
+    var items = COMMANDS.filter(function (c) { return !q || c.label.toLowerCase().indexOf(q) !== -1; });
+    paletteList.innerHTML = '';
+    items.forEach(function (c, i) {
+      var li = document.createElement('li');
+      if (i === paletteActive) li.className = 'active';
+      li.innerHTML = '<span class="label">' + c.label + '</span><span class="shortcut">' + Kb.format(c.shortcut) + '</span>';
+      li.addEventListener('mouseenter', function () { paletteActive = i; renderPalette(); });
+      li.addEventListener('click', function () { runPalette(c); });
+      paletteList.appendChild(li);
+    });
+    if (items.length === 0) {
+      paletteList.innerHTML = '<li style="color: var(--muted); cursor: default;"><span class="label">No commands match</span></li>';
+    }
+    return items;
+  }
+
+  function openPalette() {
+    overlay.classList.add('open');
+    paletteInput.value = '';
+    paletteActive = 0;
+    renderPalette();
+    setTimeout(function () { paletteInput.focus(); }, 20);
+    popPaletteScope = Kb.pushScope('palette', { exclusive: true });
+    log('palette', 'opened (scope → palette, exclusive)');
+  }
+
+  function closePalette() {
+    overlay.classList.remove('open');
+    if (popPaletteScope) { popPaletteScope(); popPaletteScope = null; }
+    log('palette', 'closed');
+  }
+
+  function runPalette(cmd) {
+    log('palette', 'ran: ' + cmd.label);
+    closePalette();
+  }
+
+  paletteTrigger.addEventListener('click', openPalette);
+  paletteInput.addEventListener('input', function () { paletteActive = 0; renderPalette(); });
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closePalette(); });
+
+  Kb.on('mod+k', function (e) {
+    e.preventDefault();
+    if (overlay.classList.contains('open')) closePalette();
+    else openPalette();
+  }, { allowInInput: true });
+
+  // Palette-scoped navigation — only active when palette is open
+  Kb.on('arrowdown', function (e) {
+    e.preventDefault();
+    var items = renderPalette();
+    paletteActive = Math.min(items.length - 1, paletteActive + 1);
+    renderPalette();
+  }, { scope: 'palette', allowInInput: true });
+
+  Kb.on('arrowup', function (e) {
+    e.preventDefault();
+    var items = renderPalette();
+    paletteActive = Math.max(0, paletteActive - 1);
+    renderPalette();
+  }, { scope: 'palette', allowInInput: true });
+
+  Kb.on('enter', function (e) {
+    e.preventDefault();
+    var items = renderPalette();
+    var pick = items[paletteActive];
+    if (pick) runPalette(pick);
+  }, { scope: 'palette', allowInInput: true });
+
+  Kb.on('escape', function () { if (overlay.classList.contains('open')) closePalette(); }, { scope: 'palette', allowInInput: true });
+
+  /* =======================
+     Snake
+     ======================= */
+  var SNAKE_SIZE = 15;
+  var snakeGridEl = document.getElementById('snakeGrid');
+  snakeGridEl.style.gridTemplateColumns = 'repeat(' + SNAKE_SIZE + ', 18px)';
+  var cells = [];
+  for (var i = 0; i < SNAKE_SIZE * SNAKE_SIZE; i++) {
+    var c = document.createElement('div');
+    c.className = 'cell';
+    snakeGridEl.appendChild(c);
+    cells.push(c);
+  }
+  var snake, dir, pendingDir, food, score, snakeTimer, snakeRunning;
+  var scoreEl = document.getElementById('snakeScore');
+  var stateEl = document.getElementById('snakeState');
+
+  function resetSnake() {
+    snake = [{ x: 7, y: 7 }, { x: 6, y: 7 }, { x: 5, y: 7 }];
+    dir = { x: 1, y: 0 };
+    pendingDir = dir;
+    score = 0;
+    placeFood();
+    drawSnake();
+    scoreEl.textContent = '0';
+    stateEl.textContent = 'idle';
+    snakeRunning = false;
+    if (snakeTimer) clearInterval(snakeTimer);
+  }
+
+  function placeFood() {
+    while (true) {
+      var f = { x: Math.floor(Math.random() * SNAKE_SIZE), y: Math.floor(Math.random() * SNAKE_SIZE) };
+      if (!snake.some(function (s) { return s.x === f.x && s.y === f.y; })) { food = f; return; }
+    }
+  }
+
+  function drawSnake() {
+    cells.forEach(function (c) { c.className = 'cell'; });
+    snake.forEach(function (s, i) {
+      var idx = s.y * SNAKE_SIZE + s.x;
+      if (cells[idx]) cells[idx].className = 'cell ' + (i === 0 ? 'head' : 'snake');
+    });
+    var fi = food.y * SNAKE_SIZE + food.x;
+    if (cells[fi]) cells[fi].className = 'cell food';
+  }
+
+  function stepSnake() {
+    dir = pendingDir;
+    var head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+    if (head.x < 0 || head.x >= SNAKE_SIZE || head.y < 0 || head.y >= SNAKE_SIZE ||
+        snake.some(function (s) { return s.x === head.x && s.y === head.y; })) {
+      stateEl.textContent = 'game over';
+      snakeRunning = false;
+      clearInterval(snakeTimer);
+      log('snake', 'game over — score ' + score);
+      return;
+    }
+    snake.unshift(head);
+    if (head.x === food.x && head.y === food.y) {
+      score++;
+      scoreEl.textContent = score;
+      placeFood();
+    } else {
+      snake.pop();
+    }
+    drawSnake();
+  }
+
+  function toggleSnake() {
+    if (snakeRunning) {
+      snakeRunning = false;
+      clearInterval(snakeTimer);
+      stateEl.textContent = 'paused';
+      log('snake', 'paused');
+    } else {
+      if (stateEl.textContent === 'game over') resetSnake();
+      snakeRunning = true;
+      stateEl.textContent = 'running';
+      snakeTimer = setInterval(stepSnake, 120);
+      log('snake', 'running');
+    }
+  }
+
+  function turn(x, y) {
+    if (!snakeRunning) return;
+    // Prevent 180° turns
+    if (snake.length > 1 && dir.x === -x && dir.y === -y) return;
+    pendingDir = { x: x, y: y };
+  }
+
+  Kb.on('arrowup',    function () { turn(0, -1); });
+  Kb.on('arrowdown',  function () { turn(0,  1); });
+  Kb.on('arrowleft',  function () { turn(-1, 0); });
+  Kb.on('arrowright', function () { turn(1,  0); });
+  Kb.on('w', function () { turn(0, -1); });
+  Kb.on('s', function () { turn(0,  1); });
+  Kb.on('a', function () { turn(-1, 0); });
+  Kb.on('d', function () { turn(1,  0); });
+  Kb.on('space', toggleSnake);
+  Kb.on('r', function () { resetSnake(); log('snake', 'reset'); });
+  resetSnake();
+
+  /* =======================
+     Konami Code + Confetti
+     ======================= */
+  var konamiBanner = document.getElementById('konamiBanner');
+  function burstConfetti() {
+    var colors = ['#30d158', '#2997ff', '#ff9f0a', '#ff375f', '#bf5af2', '#64d2ff'];
+    for (var i = 0; i < 80; i++) {
+      (function (n) {
+        var el = document.createElement('div');
+        el.className = 'confetti';
+        el.style.background = colors[n % colors.length];
+        el.style.left = (50 + (Math.random() - 0.5) * 10) + '%';
+        el.style.top = '20%';
+        document.body.appendChild(el);
+        var dx = (Math.random() - 0.5) * 800;
+        var dy = 400 + Math.random() * 400;
+        var rot = Math.random() * 720;
+        el.animate([
+          { transform: 'translate(0,0) rotate(0)', opacity: 1 },
+          { transform: 'translate(' + dx + 'px,' + dy + 'px) rotate(' + rot + 'deg)', opacity: 0 },
+        ], { duration: 1400 + Math.random() * 800, easing: 'cubic-bezier(.2,.6,.3,1)' });
+        setTimeout(function () { el.remove(); }, 2400);
+      })(i);
+    }
+  }
+
+  Kb.on(
+    ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'],
+    function () {
+      konamiBanner.classList.add('show');
+      burstConfetti();
+      log('konami', 'sequence completed 🎮');
+      setTimeout(function () { konamiBanner.classList.remove('show'); }, 3000);
+    },
+    { timeout: 5000 }
+  );
+})();
+</script>
+</body>
+</html>

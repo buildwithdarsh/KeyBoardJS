@@ -1,0 +1,50 @@
+{
+  "name": "@buildwithdarsh/keyboard.js",
+  "version": "1.0.0",
+  "description": "A tiny, modular keyboard input library — hotkeys, sequences, chords, scopes, layouts, recorder",
+  "main": "dist/keyboard.umd.js",
+  "module": "dist/keyboard.esm.js",
+  "types": "dist/keyboard.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/keyboard.d.ts",
+      "import": "./dist/keyboard.esm.js",
+      "require": "./dist/keyboard.umd.js"
+    }
+  },
+  "files": [
+    "dist/keyboard.umd.js",
+    "dist/keyboard.umd.js.map",
+    "dist/keyboard.esm.js",
+    "dist/keyboard.esm.js.map",
+    "dist/keyboard.d.ts"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rollup -c && rm -rf example/dist && cp -r dist example/dist",
+    "typecheck": "tsc --noEmit",
+    "dev": "rollup -c -w"
+  },
+  "keywords": [
+    "keyboard",
+    "hotkeys",
+    "shortcuts",
+    "keybindings",
+    "sequences",
+    "chords",
+    "layouts"
+  ],
+  "author": "Darsh Gupta",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@rollup/plugin-terser": "^1.0.0",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "rollup": "^4.34.8",
+    "rollup-plugin-dts": "^6.1.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.3"
+  }
+}

@@ -26,7 +26,7 @@ export class KbEvents {
     const set = this._map.get(event);
     if (!set) return;
     for (const fn of set) {
-      try { fn(...args); } catch (e) { console.error('[keyboard.js]', e); }
+      try { fn(...args); } catch (e) { console.error('[KeyBoardJS]', e); }
     }
   }
 }

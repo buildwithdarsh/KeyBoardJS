@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>keyboard.js — the tiny keyboard library</title>
+<title>KeyBoardJS — the tiny keyboard library</title>
 <meta name="description" content="A tiny, modular keyboard input library: hotkeys, sequences, chords, scopes, layouts, recorder. Zero dependencies." />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <style>
@@ -237,7 +237,7 @@
       <span class="badge">MIT license</span>
     </div>
 
-    <h1>keyboard<span class="dot">.</span>js</h1>
+    <h1>KeyBoard<span class="dot">JS</span></h1>
     <p class="tagline">Every keyboard interaction your web app will ever need.</p>
     <p class="typewriter"><span id="typewriter"></span><span class="caret"></span></p>
 
@@ -342,7 +342,7 @@
       </div>
       <div class="install-body">
         <button class="copy-btn" id="copyInstall">Copy</button>
-        <pre id="installCode" data-cmd="npm">npm install @buildwithdarsh/keyboard.js</pre>
+        <pre id="installCode" data-cmd="npm">npm install @buildwithdarsh/keyboardjs</pre>
       </div>
     </div>
 
@@ -351,7 +351,7 @@
         <button class="active" disabled style="color: var(--text); border-bottom-color: var(--accent); cursor: default;">usage.ts</button>
       </div>
       <div class="install-body">
-        <pre><span class="k">import</span> Kb <span class="k">from</span> <span class="s">'@buildwithdarsh/keyboard.js'</span>;
+        <pre><span class="k">import</span> Kb <span class="k">from</span> <span class="s">'@buildwithdarsh/keyboardjs'</span>;
 
 Kb.<span class="f">init</span>();
 
@@ -513,7 +513,7 @@ Kb.<span class="f">record</span>();
   <section>
     <h2>Code</h2>
     <pre class="code"><span class="c">// Everything you saw above — in 15 lines.</span>
-<span class="k">import</span> Kb <span class="k">from</span> <span class="s">'keyboard.js'</span>;
+<span class="k">import</span> Kb <span class="k">from</span> <span class="s">'KeyBoardJS'</span>;
 
 Kb.<span class="f">init</span>();
 Kb.<span class="f">on</span>(<span class="s">'ctrl+k'</span>, () =&gt; openPalette());
@@ -542,7 +542,7 @@ Kb.<span class="f">record</span>();
 <script>
 (function () {
   if (!window.Keyboard) {
-    console.error('keyboard.js UMD bundle did not load. Run `npm run build` first.');
+    console.error('KeyBoardJS UMD bundle did not load. Run `npm run build` first.');
     return;
   }
   var Kb = window.Keyboard;
@@ -552,11 +552,11 @@ Kb.<span class="f">record</span>();
      Install tabs + copy
      ======================= */
   var INSTALL_CMDS = {
-    npm:  'npm install @buildwithdarsh/keyboard.js',
-    pnpm: 'pnpm add @buildwithdarsh/keyboard.js',
-    yarn: 'yarn add @buildwithdarsh/keyboard.js',
-    bun:  'bun add @buildwithdarsh/keyboard.js',
-    cdn:  '<script src="https://cdn.jsdelivr.net/npm/@buildwithdarsh/keyboard.js"></' + 'script>',
+    npm:  'npm install @buildwithdarsh/keyboardjs',
+    pnpm: 'pnpm add @buildwithdarsh/keyboardjs',
+    yarn: 'yarn add @buildwithdarsh/keyboardjs',
+    bun:  'bun add @buildwithdarsh/keyboardjs',
+    cdn:  '<script src="https://cdn.jsdelivr.net/npm/@buildwithdarsh/keyboardjs"></' + 'script>',
   };
   var installCode = document.getElementById('installCode');
   var installTabs = document.querySelectorAll('#install .install-tabs button[data-tab]');

@@ -4,14 +4,14 @@
 
 <br />
 
-<img src="https://img.shields.io/badge/keyboard.js-v1.0.0-30d158?style=for-the-badge&labelColor=000000" alt="version" />
+<img src="https://img.shields.io/badge/keyboardjs-v1.0.0-30d158?style=for-the-badge&labelColor=000000" alt="version" />
 <img src="https://img.shields.io/badge/gzip-~4KB-ff9f0a?style=for-the-badge&labelColor=000000" alt="gzip" />
 <img src="https://img.shields.io/badge/dependencies-0-bf5af2?style=for-the-badge&labelColor=000000" alt="deps" />
 <img src="https://img.shields.io/badge/license-MIT-ff375f?style=for-the-badge&labelColor=000000" alt="license" />
 
 <br /><br />
 
-# keyboard.js
+# KeyBoardJS
 
 **The tiny keyboard library.**
 
@@ -21,9 +21,9 @@ Hotkeys, sequences, chords, scopes, layouts, and a recorder — all in one scrip
 
 ---
 
-## Why keyboard.js?
+## Why KeyBoardJS?
 
-| | hotkeys-js | Mousetrap | **keyboard.js** |
+| | hotkeys-js | Mousetrap | **KeyBoardJS** |
 |---|---|---|---|
 | Hotkeys | Yes | Yes | **Yes** |
 | Key sequences (`g g`) | No | Yes | **Yes** |
@@ -52,7 +52,7 @@ Hotkeys, sequences, chords, scopes, layouts, and a recorder — all in one scrip
 Or with a bundler:
 
 ```ts
-import Kb from 'keyboard.js';
+import Kb from 'KeyBoardJS';
 
 Kb.init();
 Kb.on('shift+?', () => showHelp());

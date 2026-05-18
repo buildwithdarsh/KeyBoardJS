@@ -1,5 +1,5 @@
 {
-  "name": "@buildwithdarsh/keyboard.js",
+  "name": "@buildwithdarsh/keyboardjs",
   "version": "1.0.0",
   "description": "A tiny, modular keyboard input library — hotkeys, sequences, chords, scopes, layouts, recorder",
   "main": "dist/keyboard.umd.js",
